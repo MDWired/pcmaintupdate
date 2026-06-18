@@ -28,6 +28,7 @@ export default function DellLookupModal({
   const [loading, setLoading] = useState(false);
   const [lookupResult, setLookupResult] = useState<DellLookupResult | null>(null);
   const [errorText, setErrorText] = useState('');
+  const [apiWarning, setApiWarning] = useState('');
   const [isOnline, setIsOnline] = useState(false);
 
   useEffect(() => {
@@ -36,6 +37,7 @@ export default function DellLookupModal({
       const cleaned = initialServiceTag.trim().replace(/[^A-Za-z0-9]/g, '').toUpperCase();
       setServiceTag(cleaned.substring(0, 7));
       setErrorText('');
+      setApiWarning('');
       setLookupResult(null);
       setLoading(false);
     }
@@ -57,12 +59,13 @@ export default function DellLookupModal({
     setLookupResult(null);
 
     try {
-      const response = await lookupDellServiceTag(cleanTag);
+      const response = await lookupDellServiceTag(cleanTag, true);
       setLookupResult(response.result);
       setIsOnline(response.online);
       if (response.error) {
-        // Log CORS or network fallback
-        console.warn(response.error);
+        setApiWarning(response.error);
+      } else {
+        setApiWarning('');
       }
     } catch (err: any) {
       setErrorText(err?.message || 'Failed to complete Dell records lookup.');
@@ -146,9 +149,28 @@ export default function DellLookupModal({
 
           {/* Validation Error */}
           {errorText && (
-            <div className="rounded-lg bg-rose-950/20 border border-rose-500/20 p-2.5 text-xs text-rose-400 flex items-center space-x-1.5">
+            <div className="rounded-lg bg-rose-950/20 border border-rose-500/20 p-2.5 text-xs text-rose-400 flex items-center space-x-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
               <AlertTriangle className="h-4.5 w-4.5 shrink-0" />
               <span>{errorText}</span>
+            </div>
+          )}
+
+          {/* API Warning/Fallback Notice */}
+          {apiWarning && (
+            <div className="rounded-lg bg-amber-950/20 border border-amber-500/20 p-3 text-xs text-amber-300 space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+              <div className="flex items-center space-x-2 font-bold">
+                <ShieldAlert className="h-4.5 w-4.5 shrink-0 text-amber-500" />
+                <span>Dell API Live Lookup Offline / Restricted</span>
+              </div>
+              <p className="text-[#cbd5e1] font-normal leading-relaxed text-[11px]">
+                The secure backend proxy received an error response from Dell. Below we are showing **high-quality sandbox-simulated specifications** based on typical configurations.
+              </p>
+              <div className="font-mono text-amber-400 text-[10px] bg-black/40 p-2 rounded border border-amber-500/10 mt-1 max-h-24 overflow-y-auto break-all">
+                Error details: {apiWarning}
+              </div>
+              <p className="text-[10px] text-slate-400 leading-tight pt-1">
+                To run live production lookups, make sure your Client ID, Secret, and Environment in Portal Settings are active and authorized in Dell's developer console for the "support/assetinfo" scope.
+              </p>
             </div>
           )}
 

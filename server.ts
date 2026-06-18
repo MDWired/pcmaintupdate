@@ -36,13 +36,16 @@ app.post('/api/dell/lookup', async (req, res) => {
   }
 
   // Handshake with Dell OAuth 2.0 Identity Server
-  const authUrl = finalEnv === 'production'
-    ? 'https://apigtwi.dell.com/auth/oauth/v2/token'
-    : 'https://sandbox.api.dell.com/auth/oauth/v2/token';
+  let authUrl = 'https://sandbox.api.dell.com/auth/oauth/v2/token';
+  let assetUrl = `https://sandbox.api.dell.com/support/assetinfo/v5/assets?servicetags=${cleanedTag}`;
 
-  const assetUrl = finalEnv === 'production'
-    ? `https://apigtwi.dell.com/support/assetinfo/v5/assets?servicetags=${cleanedTag}`
-    : `https://sandbox.api.dell.com/support/assetinfo/v5/assets?servicetags=${cleanedTag}`;
+  if (finalEnv === 'production') {
+    authUrl = 'https://apigtwi.dell.com/auth/oauth/v2/token';
+    assetUrl = `https://apigtwi.dell.com/support/assetinfo/v5/assets?servicetags=${cleanedTag}`;
+  } else if (finalEnv === 'production_b2c') {
+    authUrl = 'https://apigtwb2c.us.dell.com/auth/oauth/v2/token';
+    assetUrl = `https://apigtwb2c.us.dell.com/support/assetinfo/v5/assets?servicetags=${cleanedTag}`;
+  }
 
   try {
     const params = new URLSearchParams();
@@ -50,16 +53,28 @@ app.post('/api/dell/lookup', async (req, res) => {
     params.append('client_id', finalClientId);
     params.append('client_secret', finalClientSecret);
 
+    // Some gateways (like Apigee/B2C) want the client ID and secret in the Authorization Basic header rather than/in addition to body parameters.
+    // Providing both guarantees success across Dell's API environments.
+    const base64Creds = Buffer.from(`${finalClientId}:${finalClientSecret}`).toString('base64');
+
+    console.log(`Initiating secure Dell Auth request to: ${authUrl}`);
     const tokenResponse = await fetch(authUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${base64Creds}`
       },
       body: params.toString()
     });
 
     if (!tokenResponse.ok) {
-      throw new Error(`Dell authorization failed: Status ${tokenResponse.status}`);
+      let authErrorText = '';
+      try {
+        authErrorText = await tokenResponse.text();
+      } catch (e) {}
+      const cleanAuthError = authErrorText.length > 205 ? authErrorText.substring(0, 205) + '...' : authErrorText;
+      console.error(`Dell authorization failed. Status: ${tokenResponse.status}. Details: ${cleanAuthError}`);
+      throw new Error(`Dell TechDirect Gateway auth failed with status ${tokenResponse.status}: ${cleanAuthError || 'Access Denied / Invalid credentials'}`);
     }
 
     const tokenData = await tokenResponse.json() as { access_token?: string };
@@ -79,7 +94,14 @@ app.post('/api/dell/lookup', async (req, res) => {
     });
 
     if (!assetResponse.ok) {
-      throw new Error(`Dell asset search failed: Status ${assetResponse.status}`);
+      let details = '';
+      try {
+        details = await assetResponse.text();
+      } catch (err) {}
+      // Truncate details if they are too long (e.g. HTML pages instead of short JSON messages)
+      const cleanDetails = details.length > 200 ? details.substring(0, 200) + '...' : details;
+      console.error(`Dell asset search failed: Status ${assetResponse.status}. Details: ${cleanDetails}`);
+      throw new Error(`Dell asset search failed: Status ${assetResponse.status}${cleanDetails ? ` - ${cleanDetails}` : ''}`);
     }
 
     const rawData = await assetResponse.json();

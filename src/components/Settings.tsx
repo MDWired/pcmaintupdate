@@ -36,7 +36,7 @@ export default function Settings({
   // 1. Dell Credentials state
   const [clientId, setClientId] = useState(() => getSavedDellCredentials().clientId);
   const [clientSecret, setClientSecret] = useState(() => getSavedDellCredentials().clientSecret);
-  const [environment, setEnvironment] = useState<'sandbox' | 'production'>(() => getSavedDellCredentials().environment);
+  const [environment, setEnvironment] = useState<'sandbox' | 'production' | 'production_b2c'>(() => getSavedDellCredentials().environment);
   const [apiSaveSuccess, setApiSaveSuccess] = useState(false);
   const [cacheClearSuccess, setCacheClearSuccess] = useState(false);
 
@@ -181,7 +181,8 @@ export default function Settings({
                   className="w-full rounded-lg border border-[#1e293b] bg-[#020617] text-white px-3 py-2 text-xs outline-none focus:border-blue-500"
                 >
                   <option value="sandbox" className="bg-[#0f172a]">Sandbox (Test Server)</option>
-                  <option value="production" className="bg-[#0f172a]">Production Gateways</option>
+                  <option value="production" className="bg-[#0f172a]">Production B2B (apigtwi)</option>
+                  <option value="production_b2c" className="bg-[#0f172a]">Production B2C (apigtwb2c)</option>
                 </select>
               </div>
 
