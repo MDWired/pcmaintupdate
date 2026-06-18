@@ -1,0 +1,6 @@
+{
+  "name": "Computer Fleet Maintenance Log",
+  "description": "A comprehensive tracking system for IT teams to log, monitor, and review computer assets and maintenance history.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
